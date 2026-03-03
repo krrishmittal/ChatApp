@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace ChatApp.Domain.Entities;
 
-namespace ChatApp.Domain.Entities
+public class FileAttachment : AuditableEntity
 {
-    internal class FileAttachment
-    {
-    }
+    public Guid MessageId { get; set; }
+    public string FileName { get; set; } = null!;
+    public string FileUrl { get; set; } = null!;
+    public long FileSize { get; set; }
+    public string ContentType { get; set; } = null!;
+
+    // Navigation
+    public Message Message { get; set; } = null!;
 }

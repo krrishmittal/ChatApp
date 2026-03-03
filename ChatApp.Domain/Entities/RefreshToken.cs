@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace ChatApp.Domain.Entities;
 
-namespace ChatApp.Domain.Entities
+public class RefreshToken : AuditableEntity
 {
-    internal class RefreshToken
-    {
-    }
+    public Guid UserId { get; set; }
+    public string Token { get; set; } = null!;
+    public DateTime ExpiresAt { get; set; }
+    public bool IsRevoked { get; set; }
+
+    // Navigation
+    public User User { get; set; } = null!;
 }

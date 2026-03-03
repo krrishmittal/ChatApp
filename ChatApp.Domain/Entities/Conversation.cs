@@ -1,12 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace ChatApp.Domain.Entities;
 
-namespace ChatApp.Domain.Entities
+public class Conversation : AuditableEntity
 {
-    internal class Conversation
-    {
-    }
+    public Guid? LastMessageId { get; set; }
+
+    // Navigation
+    public Message? LastMessage { get; set; }
+    public ICollection<ConversationParticipant> Participants { get; set; } = new List<ConversationParticipant>();
+    public ICollection<Message> Messages { get; set; } = new List<Message>();
 }

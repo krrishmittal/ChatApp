@@ -1,12 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace ChatApp.Domain.Entities
+﻿namespace ChatApp.Domain.Entities;
+public class Message: AuditableEntity
 {
-    internal class Message
-    {
-    }
+    public Guid ConversationId { get; set; }
+    public Guid SenderId { get; set; }
+    public string Content { get; set; } = string.Empty;
+    public bool IsSystemMessage { get; set; }
+
+    // Navigation properties
+    public Conversation Conversation { get; set; } = null!;
+    public User Sender { get; set; } = null!;
+    public ICollection<MessageReciept>Reciepts { get; set; } = new List<MessageReciept>();
+    public ICollection<FileAttachment>Attachments { get; set; } = new List<FileAttachment>();
+
 }

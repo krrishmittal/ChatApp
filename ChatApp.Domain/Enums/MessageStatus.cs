@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace ChatApp.Domain.Enums;
 
-namespace ChatApp.Domain.Enums
+public enum  MessageStatus
 {
-    internal class MessageStatus
-    {
-    }
+    Sent=1,
+    Delivered=2,
+    Read=3
 }
