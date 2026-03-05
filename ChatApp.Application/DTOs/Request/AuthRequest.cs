@@ -17,6 +17,11 @@ public class LoginRequest
     public string CaptchaToken { get; set; } = null!;
 }
 
+public class GoogleLoginRequest
+{
+    public string IdToken { get; set; } = null!;
+}
+
 public class ForgotPasswordRequest
 {
     public string Email { get; set; } = null!;

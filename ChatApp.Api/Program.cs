@@ -1,6 +1,8 @@
+using ChatApp.API.Middleware;
 using ChatApp.Application.DTOs.Response;
 using ChatApp.Application.Validators;
 using ChatApp.Infrastructure;
+using ChatApp.Infrastructure.WebSockets;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -134,12 +136,26 @@ try
         app.UseSwagger();
         app.UseSwaggerUI();
     //}
+    app.UseWebSockets(new WebSocketOptions
+    {
+        KeepAliveInterval = TimeSpan.FromSeconds(30)
+    });
+
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.MessageTemplate =
+            "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+    });
+
     app.UseCors();
-    app.UseHttpsRedirection();
+    //app.UseHttpsRedirection();
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseMiddleware<WebSocketMiddleware>();
+
     app.MapControllers();
     app.Run();
+
 }
 catch (Exception ex)
 {

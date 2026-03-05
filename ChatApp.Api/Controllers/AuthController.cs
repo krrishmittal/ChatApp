@@ -6,6 +6,7 @@ using System.Security.Claims;
 
 namespace ChatApp.API.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
@@ -17,6 +18,7 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromForm] RegisterRequest request)
     {
@@ -24,10 +26,19 @@ public class AuthController : ControllerBase
         return response.Success ? Ok(response) : Conflict(response);
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         var response = await _authService.LoginAsync(request);
+        return response.Success ? Ok(response) : Unauthorized(response);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("google-login")]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+    {
+        var response = await _authService.GoogleLoginAsync(request);
         return response.Success ? Ok(response) : Unauthorized(response);
     }
 
@@ -45,7 +56,6 @@ public class AuthController : ControllerBase
         return response.Success ? Ok(response) : BadRequest(response);
     }
 
-    [Authorize]
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
@@ -56,4 +66,6 @@ public class AuthController : ControllerBase
         var response = await _authService.ChangePasswordAsync(request, userId);
         return response.Success ? Ok(response) : BadRequest(response);
     }
+
+    
 }

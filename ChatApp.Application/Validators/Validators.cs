@@ -44,8 +44,8 @@ public class LoginRequestValidator : AbstractValidator<LoginRequest>
         RuleFor(x => x.Password)
             .NotEmpty().WithMessage("Password is required.");
 
-        RuleFor(x => x.CaptchaToken)
-            .NotEmpty().WithMessage("Captcha token is required.");
+        //RuleFor(x => x.CaptchaToken)
+        //    .NotEmpty().WithMessage("Captcha token is required.");
     }
 }
 
@@ -103,5 +103,37 @@ public class ChangePasswordRequestValidator : AbstractValidator<ChangePasswordRe
         RuleFor(x => x.ConfirmPassword)
             .NotEmpty().WithMessage("Confirm password is required.")
             .Equal(x => x.NewPassword).WithMessage("Passwords do not match.");
+    }
+}
+
+public class GoogleLoginRequestValidator : AbstractValidator<GoogleLoginRequest>
+{
+    public GoogleLoginRequestValidator()
+    {
+        RuleFor(x => x.IdToken)
+            .NotEmpty().WithMessage("Google ID token is required.");
+    }
+}
+
+public class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequest>
+{
+    public UpdateProfileRequestValidator()
+    {
+        RuleFor(x => x.FullName)
+            .NotEmpty().WithMessage("Full Name is required.")
+            .MaximumLength(100).WithMessage("Full Name must not exceed 100 characters.");
+    }
+}
+
+public class UpdateProfilePictureRequestValidator : AbstractValidator<UpdateProfilePictureRequest>
+{
+    public UpdateProfilePictureRequestValidator()
+    {
+        RuleFor(x => x.ProfilePicture)
+            .NotNull().WithMessage("Profile picture is required.")
+            .Must(file => file != null && file.Length <= 5 * 1024 * 1024)
+                .WithMessage("Profile picture must be less than 5MB.")
+            .Must(file => file != null && new[] { "image/jpeg", "image/png", "image/webp" }.Contains(file.ContentType))
+                .WithMessage("Only JPEG, PNG and WEBP formats are allowed.");
     }
 }

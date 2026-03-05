@@ -1,7 +1,10 @@
-﻿using ChatApp.Application.Interfaces.Services;
+﻿using ChatApp.Application.Interfaces.Repositories;
+using ChatApp.Application.Interfaces.Services;
 using ChatApp.Domain.Entities;
 using ChatApp.Infrastructure.Data;
+using ChatApp.Infrastructure.Repositories;
 using ChatApp.Infrastructure.Services;
+using ChatApp.Infrastructure.WebSockets;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -30,13 +33,22 @@ public static class DependencyInjection
         .AddEntityFrameworkStores<AppDbContext>()
         .AddDefaultTokenProviders();
 
-        // Services
+        // HTTP Client (for CaptchaService)
+        services.AddHttpClient();
+
+        // Application Services
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<ICloudinaryService, CloudinaryService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ICaptchaService, CaptchaService>();
-        services.AddHttpClient();
+        services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IUserRepository, UserRepository>();
+
+        // WebSocket (Singleton — must live entire app lifetime)
+        services.AddSingleton<ConnectionManager>();
+        services.AddSingleton<WebSocketHandler>();
+
         return services;
     }
 }
