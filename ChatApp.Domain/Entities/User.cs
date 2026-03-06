@@ -5,7 +5,6 @@ public class User : IdentityUser<Guid>
 {
     public string FullName { get; set; }
     public string? ProfilePictureUrl { get; set; }
-    public UserStatus Status { get; set; }=UserStatus.Offline;
     public bool IsGoogleAccount { get; set; }
     public string? PasswordResetOtp { get; set; }
     public DateTime? PassordResetOtpExpiry {  get; set; }

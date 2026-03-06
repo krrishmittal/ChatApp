@@ -153,7 +153,7 @@ public class AuthService : IAuthService
             await _userManager.UpdateAsync(user);
             _logger.LogInformation("Login successful for email: {Email}", request.Email);
 
-            await _emailService.SendLoginNotificationEmailAsync(request.Email, user.FullName);
+            //await _emailService.SendLoginNotificationEmailAsync(request.Email, user.FullName);
 
             return ApiResponse<AuthResponse>.Ok(new AuthResponse
             {

@@ -1,9 +1,8 @@
-﻿using System.Collections.Concurrent;
+﻿using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
-using Serilog;
 
 namespace ChatApp.Infrastructure.WebSockets;
 
@@ -32,7 +31,7 @@ public class ConnectionManager
         _logger.LogInformation("Removed connection for user {UserId}", userId);
     }
 
-    public bool isOnline(Guid userId)
+    public bool IsOnline(Guid userId)
     {
         return _connections.ContainsKey(userId);
     }

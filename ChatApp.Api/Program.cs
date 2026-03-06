@@ -138,7 +138,7 @@ try
     //}
     app.UseWebSockets(new WebSocketOptions
     {
-        KeepAliveInterval = TimeSpan.FromSeconds(30)
+        KeepAliveInterval = TimeSpan.FromSeconds(300)
     });
 
     app.UseSerilogRequestLogging(options =>

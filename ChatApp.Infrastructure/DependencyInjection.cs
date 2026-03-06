@@ -41,11 +41,13 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<ICloudinaryService, CloudinaryService>();
         services.AddScoped<IEmailService, EmailService>();
-        services.AddScoped<ICaptchaService, CaptchaService>();
+        services.AddScoped<ICaptchaService, CaptchaService>();  
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IUserRepository, UserRepository>();
-
-        // WebSocket (Singleton — must live entire app lifetime)
+        services.AddScoped<IConversationRepository, ConversationRepository>();
+        services.AddScoped<IConversationService, ConversationService>();
+        services.AddScoped<IMessageRepository, MessageRepository>();
+        services.AddScoped<IMessageService, MessageService>();
         services.AddSingleton<ConnectionManager>();
         services.AddSingleton<WebSocketHandler>();
 

@@ -82,7 +82,7 @@ public class WebSocketMiddleware
                 ValidIssuer = jwtSettings["Issuer"],
                 ValidAudience = jwtSettings["Audience"],
                 IssuerSigningKey = key,
-                ClockSkew = TimeSpan.Zero // no tolerance on expiry
+                ClockSkew = TimeSpan.Zero 
             }, out _);
 
             var userIdClaim = principal.FindFirstValue(ClaimTypes.NameIdentifier);

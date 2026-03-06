@@ -35,7 +35,6 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
             e.Property(u => u.FullName).IsRequired().HasMaxLength(100);
             e.Property(u => u.ProfilePictureUrl).HasMaxLength(500);
             e.Property(u => u.PasswordResetOtp).HasMaxLength(10);
-            e.Property(u => u.Status).HasConversion<int>();
             e.HasQueryFilter(u => !u.IsDeleted);
         });
 

@@ -47,7 +47,7 @@ public class UserService : IUserService
                     FullName = u.FullName,
                     Email = u.Email!,
                     ProfilePictureUrl = u.ProfilePictureUrl,
-                    IsOnline = _connectionManager.isOnline(u.Id)
+                    IsOnline = _connectionManager.IsOnline(u.Id)
                 }).ToList(),
             };
             return ApiResponse<PagedResponse<UserResponse>>.Ok(result);

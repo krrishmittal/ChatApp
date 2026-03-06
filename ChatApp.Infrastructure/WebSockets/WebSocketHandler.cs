@@ -1,7 +1,5 @@
 ﻿using ChatApp.Application.DTOs.WebSocket;
-using ChatApp.Domain.Entities;
-using ChatApp.Domain.Enums;
-using Microsoft.AspNetCore.Identity;
+using ChatApp.Application.Interfaces.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Net.WebSockets;
@@ -30,12 +28,13 @@ public class WebSocketHandler
         _serviceProvider = serviceProvider;
     }
 
+   
+
     public async Task HandleAsync(Guid userId, WebSocket socket)
     {
         _connectionManager.AddConnection(userId, socket);
-
-        await UpdateUserStatusAsync(userId, UserStatus.Online);
         await BroadcastUserStatusAsync(userId, isOnline: true);
+        await DeliverPendingMessagesAsync(userId);
 
         var buffer = new byte[4096];
         try
@@ -68,7 +67,6 @@ public class WebSocketHandler
         finally
         {
             _connectionManager.RemoveConnection(userId);
-            await UpdateUserStatusAsync(userId, UserStatus.Offline);
             await BroadcastUserStatusAsync(userId, isOnline: false);
 
             if (socket.State != WebSocketState.Closed)
@@ -81,24 +79,70 @@ public class WebSocketHandler
         }
     }
 
-    private async Task UpdateUserStatusAsync(Guid userId, UserStatus status)
+    private async Task HandleSendMessageAsync(Guid userId, SendMessagePayload payload)
     {
         try
         {
             using var scope = _serviceProvider.CreateScope();
-            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
+            var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
 
-            var user = await userManager.FindByIdAsync(userId.ToString());
-            if (user is not null)
+            
+            var result = await messageService.SaveMessageAsync(userId, payload);
+
+            _logger.LogInformation("SaveMessage result: Success={Success} Message={Msg}",
+                result.Success, result.Message);
+
+            if (!result.Success)
             {
-                user.Status = status;
-                await userManager.UpdateAsync(user);
-                _logger.LogInformation("User {UserId} status updated to {Status}", userId, status);
+                await SendErrorAsync(userId, result.Message);
+                return;
             }
+
+            var participantIds = await messageService
+                .GetConversationParticipantIdsAsync(payload.ConversationId);
+
+            _logger.LogInformation("Participants count: {Count}", participantIds.Count);
+
+            foreach (var participantId in participantIds)
+            {
+                var isOnline = _connectionManager.IsOnline(participantId);
+                _logger.LogInformation("Participant {Id} IsOnline={Online}", participantId, isOnline);
+
+                if (isOnline)
+                {
+                    if (participantId != userId)
+                    {
+                        await _connectionManager.SendToUserAsync(participantId, new
+                        {
+                            type = WebSocketMessageTypes.NewMessage,
+                            payload = result.Data
+                        });
+                    }
+
+                    if (participantId != userId)
+                    {
+                        _logger.LogInformation("Marking MessageId={MessageId} as delivered for UserId={UserId}",
+                            result.Data!.Id, participantId);
+                        await messageService.MarkMessageAsDeliveredAsync(
+                            participantId, result.Data!.Id);
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("Participant {Id} is offline — message stays as Sent",
+                        participantId);
+                }
+            }
+            await _connectionManager.SendToUserAsync(userId, new
+            {
+                type = WebSocketMessageTypes.MessageSent,  
+                payload = result.Data             
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to update status for UserId={UserId}", userId);
+            _logger.LogError(ex, "Error in HandleSendMessageAsync for UserId={UserId}", userId);
+            await SendErrorAsync(userId, "Failed to send message.");
         }
     }
 
@@ -115,10 +159,6 @@ public class WebSocketHandler
 
             switch (message.Type)
             {
-                case WebSocketMessageTypes.Ping:
-                    await HandlePingAsync(userId);
-                    break;
-
                 case WebSocketMessageTypes.SendMessage:
                     var sendPayload = DeserializePayload<SendMessagePayload>(message.Payload);
                     if (sendPayload is not null)
@@ -151,40 +191,88 @@ public class WebSocketHandler
         }
     }
 
-    // ─── Handlers ────────────────────────────────────────────────
-
-    private async Task HandlePingAsync(Guid userId)
-    {
-        _logger.LogInformation("Ping from UserId={UserId}", userId);
-        await _connectionManager.SendToUserAsync(userId, new
-        {
-            type = WebSocketMessageTypes.Pong,
-            payload = new { timestamp = DateTime.UtcNow }
-        });
-    }
-
-    private async Task HandleSendMessageAsync(Guid userId, SendMessagePayload payload)
-    {
-        _logger.LogInformation("SendMessage from UserId={UserId} to ConversationId={ConvId}",
-            userId, payload.ConversationId);
-
-        await Task.CompletedTask;
-    }
-
     private async Task HandleTypingAsync(Guid userId, TypingPayload payload)
     {
-        _logger.LogInformation("Typing indicator from UserId={UserId} ConversationId={ConvId} IsTyping={IsTyping}",
-            userId, payload.ConversationId, payload.IsTyping);
+        using var scope = _serviceProvider.CreateScope();
+        var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
 
-        await Task.CompletedTask;
+        var participantIds = await messageService
+            .GetConversationParticipantIdsAsync(payload.ConversationId);
+
+        var others = participantIds.Where(id => id != userId);
+
+        await _connectionManager.SendToUsersAsync(others, new
+        {
+            type = WebSocketMessageTypes.TypingIndicator,
+            payload = new
+            {
+                conversationId = payload.ConversationId,
+                userId,
+                isTyping = payload.IsTyping
+            }
+        });
+
+        _logger.LogInformation("Typing indicator sent from UserId={UserId} IsTyping={IsTyping}",
+            userId, payload.IsTyping);
     }
 
     private async Task HandleReadReceiptAsync(Guid userId, ReadReceiptPayload payload)
     {
-        _logger.LogInformation("ReadReceipt from UserId={UserId} MessageId={MsgId}",
-            userId, payload.MessageId);
+        using var scope = _serviceProvider.CreateScope();
+        var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
+        await messageService.MarkMessageAsReadAsync(userId, payload.MessageId);
+        var participantIds = await messageService
+            .GetConversationParticipantIdsAsync(payload.ConversationId);
 
-        await Task.CompletedTask;
+        await _connectionManager.SendToUsersAsync(participantIds, new
+        {
+            type = WebSocketMessageTypes.MessageRead,
+            payload = new
+            {
+                messageId = payload.MessageId,
+                conversationId = payload.ConversationId,
+                userId,
+                readAt = DateTime.UtcNow
+            }
+        });
+
+        _logger.LogInformation("MessageId={MessageId} marked as read by UserId={UserId}",
+            payload.MessageId, userId);
+    }
+
+    private async Task DeliverPendingMessagesAsync(Guid userId)
+    {
+        try
+        {
+            _logger.LogInformation("Checking pending messages for UserId={UserId}", userId);
+
+            using var scope = _serviceProvider.CreateScope();
+            var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
+
+            var pendingMessages = await messageService.GetPendingMessagesAsync(userId);
+
+            _logger.LogInformation("Found {Count} pending messages for UserId={UserId}",
+                pendingMessages.Count, userId);
+
+            if (!pendingMessages.Any()) return;
+
+            foreach (var message in pendingMessages)
+            {
+                await _connectionManager.SendToUserAsync(userId, new
+                {
+                    type = WebSocketMessageTypes.NewMessage,
+                    payload = message
+                });
+
+                await messageService.MarkMessageAsDeliveredAsync(userId, message.Id);
+                _logger.LogInformation("Delivered pending MessageId={MessageId} to UserId={UserId}",
+                    message.Id, userId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to deliver pending messages to UserId={UserId}", userId);
+        }
     }
 
     // ─── Helpers ─────────────────────────────────────────────────
@@ -217,10 +305,9 @@ public class WebSocketHandler
         });
     }
 
-    private static T? DeserializePayload<T>(object? payload)
+    private static T? DeserializePayload<T>(System.Text.Json.JsonElement? payload)
     {
         if (payload is null) return default;
-        var json = JsonSerializer.Serialize(payload);
-        return JsonSerializer.Deserialize<T>(json);
+        return payload.Value.Deserialize<T>(_jsonOptions);
     }
 }
