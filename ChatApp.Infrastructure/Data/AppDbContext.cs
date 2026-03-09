@@ -116,6 +116,7 @@ public class AppDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
             e.HasKey(f => f.Id);
             e.Property(f => f.FileName).IsRequired().HasMaxLength(255);
             e.Property(f => f.FileUrl).IsRequired().HasMaxLength(500);
+            e.Property(f => f.PublicId).IsRequired().HasMaxLength(500);
             e.Property(f => f.ContentType).IsRequired().HasMaxLength(100);
             e.HasOne(f => f.Message)
              .WithMany(m => m.Attachments)

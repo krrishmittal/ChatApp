@@ -1,8 +1,9 @@
+using AspNetCoreRateLimit;
+using ChatApp.Api.Middleware;
 using ChatApp.API.Middleware;
 using ChatApp.Application.DTOs.Response;
 using ChatApp.Application.Validators;
 using ChatApp.Infrastructure;
-using ChatApp.Infrastructure.WebSockets;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -40,28 +41,31 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
         options.Events = new JwtBearerEvents
         {
+            // ✅ Read token from cookie
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Cookies["accessToken"];
+                if (!string.IsNullOrEmpty(token))
+                    context.Token = token;
+                return Task.CompletedTask;
+            },
+
             OnChallenge = async context =>
             {
                 context.HandleResponse();
-
                 context.Response.StatusCode = 401;
                 context.Response.ContentType = "application/json";
 
                 var endpoint = context.HttpContext.GetEndpoint();
-                var methodName = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>()?.ActionName
-                                 ?? "Unknown";
+                var methodName = endpoint?.Metadata
+                    .GetMetadata<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>()
+                    ?.ActionName ?? "Unknown";
 
-                var response = ApiResponse<object>.Fail(
-                    "Unauthorized.",
-                    401,
-                    methodName
-                );
-
+                var response = ApiResponse<object>.Fail("Unauthorized.", 401, methodName);
                 var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
-
                 await context.Response.WriteAsync(json);
             },
 
@@ -71,25 +75,28 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 context.Response.ContentType = "application/json";
 
                 var endpoint = context.HttpContext.GetEndpoint();
-                var methodName = endpoint?.Metadata.GetMetadata<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>()?.ActionName
-                                 ?? "Unknown";
+                var methodName = endpoint?.Metadata
+                    .GetMetadata<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>()
+                    ?.ActionName ?? "Unknown";
 
-                var response = ApiResponse<object>.Fail(
-                    "Forbidden.",
-                    403,
-                    methodName
-                );
-
+                var response = ApiResponse<object>.Fail("Forbidden.", 403, methodName);
                 var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
                 {
                     PropertyNamingPolicy = JsonNamingPolicy.CamelCase
                 });
-
                 await context.Response.WriteAsync(json);
             }
         };
     });
-
+// Rate Limiting
+builder.Services.AddMemoryCache();
+builder.Services.Configure<IpRateLimitOptions>(
+    builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
+builder.Services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+builder.Services.AddSingleton<IProcessingStrategy, AsyncKeyLockProcessingStrategy>();
+builder.Services.AddInMemoryRateLimiting();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddFluentValidationAutoValidation();
@@ -147,12 +154,12 @@ try
             "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
     });
 
+    app.UseMiddleware<RateLimitResponseMiddleware>(); 
+    app.UseIpRateLimiting();                        
     app.UseCors();
-    //app.UseHttpsRedirection();
     app.UseAuthentication();
     app.UseAuthorization();
     app.UseMiddleware<WebSocketMiddleware>();
-
     app.MapControllers();
     app.Run();
 

@@ -11,6 +11,9 @@ public class User : IdentityUser<Guid>
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public bool IsDeleted { get; set; }
+    public string? FcmToken { get; set; }
+    public DateTime? ScheduledAt { get; set; }
+    public bool IsScheduled => ScheduledAt.HasValue && ScheduledAt > DateTime.UtcNow;
 
     //navigation properties
     public ICollection<ConversationParticipant> Conversations { get; set; } = new List<ConversationParticipant>();

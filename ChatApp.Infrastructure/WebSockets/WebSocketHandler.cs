@@ -1,5 +1,7 @@
 ﻿using ChatApp.Application.DTOs.WebSocket;
 using ChatApp.Application.Interfaces.Services;
+using ChatApp.Domain.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Net.WebSockets;
@@ -129,8 +131,24 @@ public class WebSocketHandler
                 }
                 else
                 {
-                    _logger.LogInformation("Participant {Id} is offline — message stays as Sent",
-                        participantId);
+                    _logger.LogInformation("Participant {Id} is offline - sending push notification", participantId);
+
+                    using var pushScope = _serviceProvider.CreateScope();
+                    var userManager = pushScope.ServiceProvider
+                        .GetRequiredService<UserManager<User>>();
+                    var pushService = pushScope.ServiceProvider
+                        .GetRequiredService<IPushNotificationService>();
+
+                    var recipient = await userManager.FindByIdAsync(participantId.ToString());
+
+                    if (recipient?.FcmToken is not null)
+                    {
+                        await pushService.SendPushNotificationAsync(
+                            recipient.FcmToken,
+                            result.Data!.SenderName,
+                            result.Data!.Content,
+                            result.Data!.ConversationId);
+                    }
                 }
             }
             await _connectionManager.SendToUserAsync(userId, new

@@ -3,7 +3,6 @@ using ChatApp.Application.DTOs.Response;
 using ChatApp.Application.Interfaces.Services;
 using ChatApp.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -282,6 +281,8 @@ public class AuthService : IAuthService
             return ApiResponse<bool>.Fail("Something went wrong.", 500, nameof(ChangePasswordAsync));
         }
     }
+
+
 
     public async Task<ApiResponse<AuthResponse>> GoogleLoginAsync(GoogleLoginRequest request)
     {

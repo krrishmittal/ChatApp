@@ -38,7 +38,8 @@ public static class DependencyInjection
 
         // Application Services
         services.AddScoped<IAuthService, AuthService>();
-        services.AddScoped<ITokenService, TokenService>();
+        services.AddHttpClient("Gemini");
+        services.AddScoped<IAiService, AiService>(); services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<ICloudinaryService, CloudinaryService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<ICaptchaService, CaptchaService>();  
@@ -50,6 +51,9 @@ public static class DependencyInjection
         services.AddScoped<IMessageService, MessageService>();
         services.AddSingleton<ConnectionManager>();
         services.AddSingleton<WebSocketHandler>();
+        services.AddSingleton<IPushNotificationService, FirebasePushNotificationService>();
+        services.AddSingleton<WebSocketNotifier>();
+
 
         return services;
     }

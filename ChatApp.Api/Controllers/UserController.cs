@@ -67,4 +67,14 @@ public class UserController : ControllerBase
         var response = await _userService.DeleteAccountAsync(userId);
         return response.Success ? Ok(response) : BadRequest(response);
     }
+
+    [HttpPost("fcm-token")]
+    public async Task<IActionResult> SaveFcmToken([FromBody] SaveFcmTokenRequest request)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+        var response = await _userService.SaveFcmTokenAsync(userId, request.FcmToken);
+        return response.Success ? Ok(response) : BadRequest(response);
+    }
+
 }

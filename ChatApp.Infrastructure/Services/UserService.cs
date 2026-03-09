@@ -207,6 +207,28 @@ public class UserService : IUserService
         }
     }
 
+    public async Task<ApiResponse<bool>> SaveFcmTokenAsync(string userId, string fcmToken)
+    {
+        try
+        {
+            _logger.LogInformation("Saving FCM token for user ID: {UserId}", userId);
+            var user =await _userManager.FindByIdAsync(userId);
+            if(user == null || user.IsDeleted) {
+                _logger.LogWarning("Save FCM token failed: user not found for ID {UserId}", userId);
+                return ApiResponse<bool>.Fail("User not found", 404, nameof(SaveFcmTokenAsync));
+            }
+            user.FcmToken=fcmToken;
+            await _userManager.UpdateAsync(user);
+
+            _logger.LogInformation("FCM token saved for user ID: {UserId}", userId);
+            return ApiResponse<bool>.Ok(true, "FCM token saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected Error in {Method}", nameof(SaveFcmTokenAsync));
+            return ApiResponse<bool>.Fail("Something went wrong", 500, nameof(SaveFcmTokenAsync));
+        }
+    }
     private static UserProfileResponse MapToProfileResponse(User user) => new()
     {
         Id = user.Id,

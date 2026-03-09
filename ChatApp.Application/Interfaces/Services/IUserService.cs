@@ -12,4 +12,5 @@ public interface IUserService
     Task<ApiResponse<UserProfileResponse>> UpdateProfileAsync(string userId, UpdateProfileRequest request);
     Task<ApiResponse<UserProfileResponse>> UpdateProfilePictureAsync(string userId, UpdateProfilePictureRequest request);
     Task<ApiResponse<bool>> DeleteAccountAsync(string userId);
+    Task<ApiResponse<bool>> SaveFcmTokenAsync(string userId, string fcmToken);
 }

@@ -13,10 +13,12 @@ public class MessageService : IMessageService
 {
     private readonly IMessageRepository _messageRepo;
     private readonly IConversationRepository _conversationRepo;
+    private readonly ICloudinaryService _cloudiaryService;
     private readonly ILogger<MessageService> _logger;
-    public MessageService(IMessageRepository messageRepo, IConversationRepository _conversationRepository, ILogger<MessageService> logger)
+    public MessageService(IMessageRepository messageRepo, ICloudinaryService cloudinaryService ,IConversationRepository _conversationRepository, ILogger<MessageService> logger)
     {
         _messageRepo = messageRepo;
+        _cloudiaryService = cloudinaryService;
         _conversationRepo = _conversationRepository;
         _logger = logger;
     }
@@ -86,6 +88,83 @@ public class MessageService : IMessageService
         }
     }
 
+    public async Task<ApiResponse<MessageResponse>> SendFileMessageAsync(Guid senderId, Guid conversationId, SendFileMessageRequest request)
+    {
+        try
+        {
+            _logger.LogInformation("Saving file message from UserId={SenderId} to ConversationId={ConvId}",
+                senderId,conversationId);
+
+            var participantIds = await _messageRepo
+                .GetConversationParticipantIdsAsync(conversationId);
+            if (!participantIds.Contains(senderId))
+            {
+                return ApiResponse<MessageResponse>.Fail(
+                    "You are not a participant of this conversation.", 403, nameof(SendFileMessageAsync));
+            }
+            CloudinaryUploadResult uploadResult;
+            try
+            {
+                uploadResult= await _cloudiaryService.UploadFileAsync(request.File);
+                _logger.LogInformation("File uploaded successfully for UserId={UserId} in ConversationId={ConvId}",
+                    senderId, conversationId);
+            }
+            catch (Exception ex) {
+                _logger.LogError(ex, "File upload failed for UserId={UserId} in ConversationId={ConvId}",
+                    senderId, conversationId);
+                return ApiResponse<MessageResponse>.Fail(
+                    "File upload failed. Please try again.", 500, nameof(SendFileMessageAsync));
+            }
+            await _messageRepo.MarkAllAsReadAsync(conversationId, senderId);
+            var message = new Message
+            {
+                ConversationId = conversationId,
+                SenderId = senderId,
+                Content = request.Content?.Trim() ?? string.Empty,
+                CreatedAt = DateTime.UtcNow,
+                Attachments = new List<FileAttachment>
+                {
+                    new FileAttachment
+                    {
+                        FileUrl = uploadResult.Url,
+                        PublicId = uploadResult.PublicId,
+                        FileName = uploadResult.FileName,
+                        FileSize = uploadResult.FileSize,
+                        ContentType = uploadResult.ContentType
+                    }
+                }
+            };
+            foreach(var participantId in participantIds)
+            {
+                message.Reciepts.Add(new MessageReciept
+                {
+                    UserId = participantId,
+                    Status = participantId == senderId
+                        ? MessageStatus.Read
+                        : MessageStatus.Sent,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            var saved = await _messageRepo.CreateMessageAsync(message);
+            var conversation = await _conversationRepo.GetByIdAsync(
+                    conversationId, senderId);
+            if(conversation is not null)
+            {
+                conversation.LastMessageId = saved.Id;
+                conversation.UpdatedAt = DateTime.UtcNow;
+                await _conversationRepo.UpdateLastMessageAsync(conversation);
+            }
+            _logger.LogInformation("File message saved with Id={MessageId} for UserId={UserId} in ConversationId={ConvId}",
+                saved.Id, senderId, conversationId);
+            return ApiResponse<MessageResponse>.Ok(MapToResponse(saved, senderId));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error in {Method}", nameof(SendFileMessageAsync));
+            return ApiResponse<MessageResponse>.Fail(
+                "Something went wrong.", 500, nameof(SendFileMessageAsync));
+        }
+    }
     public async Task<ApiResponse<PagedResponse<MessageResponse>>> GetMessagesAsync(Guid conversationId, Guid currentUserId, GetMessagesRequest request)
     {
         try
@@ -208,7 +287,6 @@ public class MessageService : IMessageService
                 FileSize = a.FileSize,
                 ContentType = a.ContentType
             }).ToList(),
-            CreatedAt = message.CreatedAt
         };
 
     }

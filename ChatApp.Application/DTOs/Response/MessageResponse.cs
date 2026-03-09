@@ -1,4 +1,4 @@
-﻿namespace ChatApp.Application.DTOs.Response;
+﻿using ChatApp.Application.DTOs.Response;
 
 public class MessageResponse
 {
@@ -10,6 +10,6 @@ public class MessageResponse
     public string Content { get; set; } = null!;
     public bool IsSystemMessage { get; set; }
     public string Status { get; set; } = null!;
-    public List<FileAttachmentResponse> Attachments { get; set; } = new();
+    public List<FileAttachmentResponse> Attachments { get; set; } = new(); 
     public DateTime CreatedAt { get; set; }
 }

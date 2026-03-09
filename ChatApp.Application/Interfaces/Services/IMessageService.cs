@@ -8,6 +8,7 @@ public interface IMessageService
 {
     Task<ApiResponse<MessageResponse>> SaveMessageAsync(
         Guid senderId, SendMessagePayload payload);
+    Task<ApiResponse<MessageResponse>>SendFileMessageAsync(Guid senderId,Guid conversationId, SendFileMessageRequest request);
     Task<ApiResponse<PagedResponse<MessageResponse>>> GetMessagesAsync(
         Guid conversationId, Guid currentUserId, GetMessagesRequest request);
     Task<ApiResponse<bool>> MarkMessageAsReadAsync(
