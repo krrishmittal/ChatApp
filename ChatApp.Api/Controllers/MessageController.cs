@@ -23,6 +23,8 @@ public class MessageController : ControllerBase
 
     }
 
+    // GET: api/conversations/{conversationId}/messages
+    // retrieves all the messages in a conversation 
     [HttpGet]
     public async Task<IActionResult> GetMessages(
         Guid conversationId, [FromQuery] GetMessagesRequest request)

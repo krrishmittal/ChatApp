@@ -23,21 +23,24 @@ public class MessageRepository : IMessageRepository
             .Include(m=>m.Sender)
             .Include(m=>m.Attachments)
             .Include(m=>m.Reciepts)
+            .AsSplitQuery()
             .FirstAsync(m=>m.Id==message.Id);
     }
 
     public async Task<List<Message>> GetConversationMessagesAsync(Guid conversationId, int page, int pageSize)
     {
-        return await _dbContext.Messages
+        var messages = await _dbContext.Messages
             .Include(m => m.Sender)
             .Include(m => m.Attachments)
             .Include(m => m.Reciepts)
+            .AsSplitQuery()
             .Where(m => m.ConversationId == conversationId)
             .OrderByDescending(m => m.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .OrderBy(m => m.CreatedAt) 
             .ToListAsync();
+
+        return messages.OrderBy(m => m.CreatedAt).ToList();
     }
     public async Task<int> GetUnreadCountAsync(Guid conversationId, Guid userId)
     {
@@ -70,6 +73,7 @@ public class MessageRepository : IMessageRepository
             .Include(m => m.Sender)
             .Include(m => m.Attachments)
             .Include(m => m.Reciepts)
+            .AsSplitQuery()
             .FirstOrDefaultAsync(m => m.Id == messageId);
     }
     public async Task<List<Guid>> GetConversationParticipantIdsAsync(Guid conversationId)
@@ -100,6 +104,7 @@ public class MessageRepository : IMessageRepository
                 .ThenInclude(m => m.Attachments)
             .Include(r => r.Message)
                 .ThenInclude(m => m.Reciepts)
+            .AsSplitQuery()
             .Select(r => r.Message)
             .OrderBy(m => m.CreatedAt)
             .ToListAsync();

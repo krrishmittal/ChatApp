@@ -25,13 +25,19 @@ public class WebSocketMiddleware
         _logger = logger;
     }
 
+    // this middleware intercepts websocket requests to /ws, validates the token and if valid, accepts the websocket connection and passes it to websocket handler 
     public async Task InvokeAsync(HttpContext context)
     {
         // Only handle /ws WebSocket requests
         if (context.Request.Path == "/ws" && context.WebSockets.IsWebSocketRequest)
         {
-            // 1. Extract token from query string
+            // 1. Extract token from query string or cookie
             var token = context.Request.Query["token"].ToString();
+            if (string.IsNullOrEmpty(token))
+            {
+                token = context.Request.Cookies["accessToken"] ?? "";
+            }
+
             if (string.IsNullOrEmpty(token))
             {
                 _logger.LogWarning("WebSocket connection rejected: missing token");
@@ -64,6 +70,7 @@ public class WebSocketMiddleware
         }
     }
 
+    // validate the jwt token using the same setting as the api
     private Guid? ValidateToken(string token)
     {
         try

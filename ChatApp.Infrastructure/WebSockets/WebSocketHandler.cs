@@ -30,34 +30,39 @@ public class WebSocketHandler
         _serviceProvider = serviceProvider;
     }
 
-   
-
+    // main entry point for handling the websocket connection and then route the message to their respective handlers and then save the message in the database and then send the message to the other participant 
     public async Task HandleAsync(Guid userId, WebSocket socket)
     {
+        // adding connection to the connection manager and then broadcast the user status online to other users and then deliever the pending messages to user if there are any left undelivered messages for the user
         _connectionManager.AddConnection(userId, socket);
         await BroadcastUserStatusAsync(userId, isOnline: true);
         await DeliverPendingMessagesAsync(userId);
 
+        //buffer for receiving messages from the client
         var buffer = new byte[4096];
         try
         {
             while (socket.State == WebSocketState.Open)
             {
+                //waiting for the message from the client and then route the message to their respective handler
                 var result = await socket.ReceiveAsync(
                     new ArraySegment<byte>(buffer),
                     CancellationToken.None);
 
+                // if the message type is close then break the loop and then remove the connection
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     _logger.LogInformation("Close requested by UserId={UserId}", userId);
                     break;
                 }
 
+                // if the message type is text then route the message to their respective handler
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var raw = Encoding.UTF8.GetString(buffer, 0, result.Count);
                     _logger.LogInformation("Message received from UserId={UserId}: {Raw}",
                         userId, raw);
+                    //routing
                     await RouteMessageAsync(userId, raw);
                 }
             }
@@ -68,8 +73,12 @@ public class WebSocketHandler
         }
         finally
         {
-            _connectionManager.RemoveConnection(userId);
-            await BroadcastUserStatusAsync(userId, isOnline: false);
+            _connectionManager.RemoveConnection(userId, socket);
+            
+            if (!_connectionManager.IsOnline(userId))
+            {
+                await BroadcastUserStatusAsync(userId, isOnline: false);
+            }
 
             if (socket.State != WebSocketState.Closed)
             {
@@ -81,6 +90,7 @@ public class WebSocketHandler
         }
     }
 
+    //function for handling the message recieved from the payload and then save the message in the database and then send the message to the other participant if they are online otherwise send push notification to the other participant
     private async Task HandleSendMessageAsync(Guid userId, SendMessagePayload payload)
     {
         try
@@ -88,7 +98,7 @@ public class WebSocketHandler
             using var scope = _serviceProvider.CreateScope();
             var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
 
-            
+            // calling the save message function in the message service and then get the result of the save message function
             var result = await messageService.SaveMessageAsync(userId, payload);
 
             _logger.LogInformation("SaveMessage result: Success={Success} Message={Msg}",
@@ -99,7 +109,7 @@ public class WebSocketHandler
                 await SendErrorAsync(userId, result.Message);
                 return;
             }
-
+            // if message saved successfully then get the participant ids of the conversation and then send the message to the other participant
             var participantIds = await messageService
                 .GetConversationParticipantIdsAsync(payload.ConversationId);
 
@@ -114,19 +124,21 @@ public class WebSocketHandler
                 {
                     if (participantId != userId)
                     {
+                        // send the message to the other participant if they are online
                         await _connectionManager.SendToUserAsync(participantId, new
                         {
                             type = WebSocketMessageTypes.NewMessage,
                             payload = result.Data
                         });
-                    }
 
-                    if (participantId != userId)
-                    {
                         _logger.LogInformation("Marking MessageId={MessageId} as delivered for UserId={UserId}",
                             result.Data!.Id, participantId);
+
+                        // mark the message as delivered in the database for the recipient
                         await messageService.MarkMessageAsDeliveredAsync(
                             participantId, result.Data!.Id);
+                        
+                        result.Data.Status = "Delivered";
                     }
                 }
                 else
@@ -151,6 +163,7 @@ public class WebSocketHandler
                     }
                 }
             }
+            // finally send the message sent acknowledgement to the sender
             await _connectionManager.SendToUserAsync(userId, new
             {
                 type = WebSocketMessageTypes.MessageSent,  
@@ -164,10 +177,12 @@ public class WebSocketHandler
         }
     }
 
+    // function for routing the message to their respective handler based on the message type and then save the message in the database
     private async Task RouteMessageAsync(Guid userId, string raw)
     {
         try
         {
+            // deserialize the message from the client and then route the message to their respective handler based on the message type
             var message = JsonSerializer.Deserialize<WebSocketMessage>(raw, _jsonOptions);
             if (message is null)
             {
@@ -177,24 +192,28 @@ public class WebSocketHandler
 
             switch (message.Type)
             {
+                // case for sending the message to server and then server will call the handesend message function and then save message in the message service 
                 case WebSocketMessageTypes.SendMessage:
                     var sendPayload = DeserializePayload<SendMessagePayload>(message.Payload);
                     if (sendPayload is not null)
                         await HandleSendMessageAsync(userId, sendPayload);
                     break;
 
+                // case for sending the typing indicator to the other user 
                 case WebSocketMessageTypes.Typing:
                     var typingPayload = DeserializePayload<TypingPayload>(message.Payload);
                     if (typingPayload is not null)
                         await HandleTypingAsync(userId, typingPayload);
                     break;
 
+                // case for marking the message as read and then notify the other participant that our message has been read by the user
                 case WebSocketMessageTypes.ReadReceipt:
                     var readPayload = DeserializePayload<ReadReceiptPayload>(message.Payload);
                     if (readPayload is not null)
                         await HandleReadReceiptAsync(userId, readPayload);
                     break;
 
+                // case for unknown message type
                 default:
                     _logger.LogWarning("Unknown message type: {Type} from UserId={UserId}",
                         message.Type, userId);
@@ -209,6 +228,7 @@ public class WebSocketHandler
         }
     }
 
+    // function for handling the typing indicator and then send the typing indicator to the other participant if they are online
     private async Task HandleTypingAsync(Guid userId, TypingPayload payload)
     {
         using var scope = _serviceProvider.CreateScope();
@@ -234,15 +254,20 @@ public class WebSocketHandler
             userId, payload.IsTyping);
     }
 
+    //function for marking message as read and notify other participant that our message has been read by the user
     private async Task HandleReadReceiptAsync(Guid userId, ReadReceiptPayload payload)
     {
         using var scope = _serviceProvider.CreateScope();
         var messageService = scope.ServiceProvider.GetRequiredService<IMessageService>();
+        
         await messageService.MarkMessageAsReadAsync(userId, payload.MessageId);
+        
         var participantIds = await messageService
             .GetConversationParticipantIdsAsync(payload.ConversationId);
 
-        await _connectionManager.SendToUsersAsync(participantIds, new
+        var others = participantIds.Where(id => id != userId);
+        // 
+        await _connectionManager.SendToUsersAsync(others, new
         {
             type = WebSocketMessageTypes.MessageRead,
             payload = new
@@ -258,6 +283,8 @@ public class WebSocketHandler
             payload.MessageId, userId);
     }
 
+
+    // function for delivering the pending messages to the user when they come online and then mark the message as delivered in the db and then notify then sender that therir message has been delivered to the user
     private async Task DeliverPendingMessagesAsync(Guid userId)
     {
         try
@@ -285,6 +312,24 @@ public class WebSocketHandler
                 await messageService.MarkMessageAsDeliveredAsync(userId, message.Id);
                 _logger.LogInformation("Delivered pending MessageId={MessageId} to UserId={UserId}",
                     message.Id, userId);
+
+                // Notify the SENDER that their message was delivered
+                if (_connectionManager.IsOnline(message.SenderId))
+                {
+                    await _connectionManager.SendToUserAsync(message.SenderId, new
+                    {
+                        type = WebSocketMessageTypes.MessageDelivered,
+                        payload = new
+                        {
+                            messageId = message.Id,
+                            conversationId = message.ConversationId,
+                            deliveredTo = userId,
+                            deliveredAt = DateTime.UtcNow
+                        }
+                    });
+                    _logger.LogInformation("Notified sender {SenderId} that MessageId={MessageId} was delivered",
+                        message.SenderId, message.Id);
+                }
             }
         }
         catch (Exception ex)
@@ -295,6 +340,7 @@ public class WebSocketHandler
 
     // ─── Helpers ─────────────────────────────────────────────────
 
+    // function for broadcasting the user status (online/offline) to all other users when a user comes online or goes offline
     private async Task BroadcastUserStatusAsync(Guid userId, bool isOnline)
     {
         var type = isOnline
@@ -323,6 +369,7 @@ public class WebSocketHandler
         });
     }
 
+    // generic function for deserializing the payload of the message from the client and then return the deserialized object
     private static T? DeserializePayload<T>(System.Text.Json.JsonElement? payload)
     {
         if (payload is null) return default;

@@ -5,6 +5,8 @@ public class ConversationResponse
     public UserResponse OtherUser { get; set;}
     public string? LastMessage { get; set; }
     public DateTime? LastMessageAt { get; set; }
+    public string? LastMessageStatus { get; set; }
+    public Guid? LastMessageSenderId { get; set; }
     public int UnreadCount { get; set; }
     public DateTime CreatedAt { get; set; }
 }

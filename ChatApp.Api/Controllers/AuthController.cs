@@ -38,19 +38,17 @@ public class AuthController : ControllerBase
             Response.Cookies.Append("accessToken", response.Data!.AccessToken!, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddMinutes(60)
             });
             Response.Cookies.Append("refreshToken", response.Data!.RefreshToken!, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddDays(7)
             });
-            response.Data.AccessToken = null;
-            response.Data.RefreshToken = null;
         }
         return response.Success ? Ok(response) : Conflict(response);
     }
@@ -65,19 +63,17 @@ public class AuthController : ControllerBase
             Response.Cookies.Append("accessToken", response.Data!.AccessToken!, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddMinutes(60)
             });
             Response.Cookies.Append("refreshToken", response.Data!.RefreshToken!, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddDays(7)
             });
-            response.Data.AccessToken = null;
-            response.Data.RefreshToken = null;
         }
         return response.Success ? Ok(response) : Unauthorized(response);
     }
@@ -92,15 +88,15 @@ public class AuthController : ControllerBase
             Response.Cookies.Append("accessToken", response.Data!.AccessToken!, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddMinutes(60)
             });
             Response.Cookies.Append("refreshToken", response.Data!.RefreshToken!, new CookieOptions
             {
                 HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
+                Secure = false,
+                SameSite = SameSiteMode.Lax,
                 Expires = DateTimeOffset.UtcNow.AddDays(7)
             });
             //response.Data.AccessToken = null;

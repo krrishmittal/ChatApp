@@ -20,6 +20,7 @@ public class ConversationRepository : IConversationRepository
             .Include(c => c.Participants)
             .ThenInclude(p => p.User)
             .Include(c => c.LastMessage)
+                .ThenInclude(m => m.Reciepts)
             .Where(c=>
                 c.Participants.Any(p => p.UserId == userAId) &&
                 c.Participants.Any(p => p.UserId == userBId) &&
@@ -57,6 +58,7 @@ public class ConversationRepository : IConversationRepository
             .Include(c => c.Participants)
                 .ThenInclude(p => p.User)
             .Include(c => c.LastMessage)
+                .ThenInclude(m => m.Reciepts)
             .Where(c =>
                 c.Id == conversationId &&
                 c.Participants.Any(p => p.UserId == currentUserId))
@@ -68,6 +70,7 @@ public class ConversationRepository : IConversationRepository
             .Include(c => c.Participants)
                 .ThenInclude(p => p.User)
             .Include(c => c.LastMessage)
+                .ThenInclude(m => m.Reciepts)
             .Where(c => c.Participants.Any(p => p.UserId == userId))
             .OrderByDescending(c => c.LastMessage != null
                 ? c.LastMessage.CreatedAt

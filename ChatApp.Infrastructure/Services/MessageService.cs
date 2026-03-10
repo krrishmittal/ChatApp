@@ -23,6 +23,7 @@ public class MessageService : IMessageService
         _logger = logger;
     }
 
+    // this method handles the saving of the message to the databae and also marks all previous message as read for the sender . It also updates the last message of the conversation and returns the saved message as response
     public async Task<ApiResponse<MessageResponse>> SaveMessageAsync(
     Guid senderId, SendMessagePayload payload)
     {
@@ -53,6 +54,7 @@ public class MessageService : IMessageService
                 CreatedAt = DateTime.UtcNow
             };
 
+            // adding the message reciepts for both 2 participants of the conversation. The sender will have the status of read and the reciever will have the status of sent
             foreach (var participantId in participantIds)
             {
                 message.Reciepts.Add(new MessageReciept
@@ -65,11 +67,13 @@ public class MessageService : IMessageService
                 });
             }
 
+            // saving the message to the database
             var saved = await _messageRepo.CreateMessageAsync(message);
 
             var conversation = await _conversationRepo.GetByIdAsync(
                 payload.ConversationId, senderId);
 
+            // updating the last message of the conversation to the newly saved message and also updating the updated at field of the conversation
             if (conversation is not null)
             {
                 conversation.LastMessageId = saved.Id;
@@ -87,7 +91,8 @@ public class MessageService : IMessageService
                 "Something went wrong.", 500, nameof(SaveMessageAsync));
         }
     }
-
+    
+    // this method is for saving the file message to the database it first checks if the sender is a participant of the conversation then it updates the status of all the previous message to read then it uploades the file to the online storage and then saves the message with the file attachment to the database
     public async Task<ApiResponse<MessageResponse>> SendFileMessageAsync(Guid senderId, Guid conversationId, SendFileMessageRequest request)
     {
         try
@@ -165,6 +170,8 @@ public class MessageService : IMessageService
                 "Something went wrong.", 500, nameof(SendFileMessageAsync));
         }
     }
+
+    // this method is for fetching the message of a conversation it first checks if the user is a participant of the conversation then it marks all the messages as read for the user and then it fetchs the message with the paginated response 
     public async Task<ApiResponse<PagedResponse<MessageResponse>>> GetMessagesAsync(Guid conversationId, Guid currentUserId, GetMessagesRequest request)
     {
         try
@@ -207,6 +214,7 @@ public class MessageService : IMessageService
         }
     }
 
+    // this method is for marking a message as read it first checks if the user is a participant then it makes the status of the message as read for the user and returns a success response 
     public async Task<ApiResponse<bool>> MarkMessageAsReadAsync(Guid userId, Guid messageId)
     {
         try
@@ -224,11 +232,14 @@ public class MessageService : IMessageService
         }
     }
 
+    // this method is for fetching the participant ids of a conversation 
     public async Task<List<Guid>> GetConversationParticipantIdsAsync(Guid conversationId)
     {
         return await _messageRepo.GetConversationParticipantIdsAsync(conversationId);
     }
 
+
+    // this method is used by the websocket to fetch the pending messages for a user it fetches all the messages which are in sent status for the user and then maps them to the response
     public async Task<List<MessageResponse>> GetPendingMessagesAsync(Guid userId)
     {
         try
@@ -244,6 +255,7 @@ public class MessageService : IMessageService
         }
     }
 
+    // this methiod is used by the websocket to mark a message as delievered when the message is sent to the reciever it marks the message  delieverd for the reciever so that when the reciever comes online it will not be in the pending messages and also it will help the sender to know that the message is delievered to the reciever 
     public async Task MarkMessageAsDeliveredAsync(Guid userId, Guid messageId)
     {
         try
@@ -258,9 +270,10 @@ public class MessageService : IMessageService
         }
     }
 
+
+    // this is a private method for mapping the message entity to the message response it also checks for the highest status of the message for the reciever and sets the status of the message response 
     private static MessageResponse MapToResponse(Message message, Guid currentUserId)
     {
-        // Get current user's receipt status
         var myReceipt = message.Reciepts.FirstOrDefault(r => r.UserId == currentUserId);
 
         
@@ -287,6 +300,7 @@ public class MessageService : IMessageService
                 FileSize = a.FileSize,
                 ContentType = a.ContentType
             }).ToList(),
+            CreatedAt = message.CreatedAt
         };
 
     }

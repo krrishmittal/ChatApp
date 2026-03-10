@@ -1,6 +1,8 @@
 using ChatApp.Application.DTOs.Request;
 using ChatApp.Application.Interfaces.Services;
+using ChatApp.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -12,10 +14,12 @@ namespace ChatApp.API.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly UserManager<User> _userManager;
 
-    public UserController(IUserService userService)
+    public UserController(IUserService userService, UserManager<User> userManager)
     {
         _userService = userService;
+        _userManager = userManager;
     }
 
     private string? GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -68,13 +72,21 @@ public class UserController : ControllerBase
         return response.Success ? Ok(response) : BadRequest(response);
     }
 
-    [HttpPost("fcm-token")]
-    public async Task<IActionResult> SaveFcmToken([FromBody] SaveFcmTokenRequest request)
+    [HttpPost("update-fcm-token")]
+    [Authorize]
+    public async Task<IActionResult> UpdateFcmToken([FromBody] SaveFcmTokenRequest request)
     {
-        var userId = GetUserId();
-        if (string.IsNullOrEmpty(userId)) return Unauthorized();
-        var response = await _userService.SaveFcmTokenAsync(userId, request.FcmToken);
-        return response.Success ? Ok(response) : BadRequest(response);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var user = await _userManager.FindByIdAsync(userId);
+
+        if (user == null)
+            return NotFound();
+
+        user.FcmToken = request.FcmToken;
+        await _userManager.UpdateAsync(user);
+         
+        return Ok(new { success = true, message = "FCM token updated" });
     }
+
 
 }

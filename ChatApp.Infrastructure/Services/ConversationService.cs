@@ -81,6 +81,18 @@ public class ConversationService : IConversationService
     private ConversationResponse MapToResponse(Conversation conversation, Guid currentUserId)
     {
         var otherParticipant = conversation.Participants.First(p => p.UserId != currentUserId);
+        
+        // Calculate status of last message if it exists
+        string? lastMessageStatus = null;
+        if (conversation.LastMessage != null)
+        {   
+            var highestStatus = conversation.LastMessage.Reciepts
+                .Where(r => r.UserId != conversation.LastMessage.SenderId)
+                .OrderByDescending(r => r.Status)
+                .FirstOrDefault();
+            lastMessageStatus = (highestStatus?.Status ?? Domain.Enums.MessageStatus.Sent).ToString();
+        }
+
         return new ConversationResponse
         {
             Id = conversation.Id,
@@ -94,6 +106,8 @@ public class ConversationService : IConversationService
             },
             LastMessage = conversation.LastMessage?.Content,
             LastMessageAt = conversation.LastMessage?.CreatedAt,
+            LastMessageStatus = lastMessageStatus,
+            LastMessageSenderId = conversation.LastMessage?.SenderId,
             UnreadCount = 0,
             CreatedAt = conversation.CreatedAt
         };

@@ -22,6 +22,7 @@ public class WebSocketNotifier
         _logger = logger;
     }
 
+    // notify all the participants in the conversation about the new messages other than the sender and confirm to the sender that the message was sent successfully
     public async Task NotifyNewMessageAsync(MessageResponse message, Guid senderId)
     {
         using var scope = _serviceProvider.CreateScope();
